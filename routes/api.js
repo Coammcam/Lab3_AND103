@@ -38,7 +38,29 @@ router.post("/add-distributor", async (req, res) => {
 });
 
 //get list fruit
-router.get("/get-list-fruit", async (req, res) => {
+router.get("/get-list-fruit", async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (token == null) {
+    return res.sendStatus(401);
+  }
+
+  let payload;
+
+  JWT.verify(token, SECRETKEY, (err, _payload) => {
+    if (err instanceof JWT.TokenExpiredError) {
+      return res.sendStatus(401);
+    }
+    if (err) {
+      return res.sendStatus(403);
+    }
+    payload = _payload;
+  });
+  console.log(payload);
+  
+
   try {
     const data = await Fruits.find().populate("id_distributor");
     res.json({
@@ -291,5 +313,38 @@ router.post(
     }
   }
 );
+
+// json web token
+const JWT = require("jsonwebtoken");
+const SECRETKEY = "FPTPOLYTECHNIC";
+router.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await Users.findOne({ username, password });
+
+    if (user) {
+      const token = JWT.sign({ id: user._id }, SECRETKEY, { expiresIn: "1h" });
+      const refreshToken = JWT.sign({ id: user._id }, SECRETKEY, {
+        expiresIn: "1h",
+      });
+
+      res.json({
+        status: 200,
+        messenger: "dang nhap thanh cong",
+        data: user,
+        token: token,
+        refreshToken: refreshToken,
+      });
+    } else {
+      res.json({
+        status: 400,
+        messenger: "loi, dang nhap khong thanh cong",
+        data: [],
+      });
+    }
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 module.exports = router;
